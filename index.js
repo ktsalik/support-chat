@@ -97,7 +97,7 @@ adminNS.on('connection', (socket) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 3010;
+const PORT = process.env.PORT || (isProd ? 8443 : 3010);
 server.listen(PORT, () => {
   console.log(`${isProd ? 'HTTPS' : 'HTTP'} server running on port ${PORT}`);
 });
