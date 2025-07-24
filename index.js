@@ -4,6 +4,7 @@ const https = require('https');
 const fs = require('fs');
 const cors = require('cors');
 const { Server } = require('socket.io');
+const basicAuth = require('express-basic-auth');
 
 const app = express();
 
@@ -12,6 +13,11 @@ app.use(cors());
 
 // Serve static files (client & admin UIs)
 app.use(express.static('public'));
+
+app.use('/admin.html', basicAuth({
+  users: { 'admin': 'digitalkeys' },
+  challenge: true,
+}));
 
 // In-memory store of connected clients
 const clients = new Map();
