@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Flowbite CSS -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.8.4/flowbite.min.css" rel="stylesheet" />
+</head>
+<body class="h-screen flex bg-gray-100">
+  <!-- Sidebar: session list -->
+  <aside class="w-64 bg-white shadow-md overflow-y-auto">
+    <div class="p-4 border-b">
+      <h2 class="text-xl font-semibold">Active Sessions</h2>
+    </div>
+    <ul id="session-list" class="divide-y">
+      <!-- Dynamically populated -->
+    </ul>
+  </aside>
+
+  <!-- Main chat area -->
+  <div class="flex-1 flex flex-col">
+    <!-- Chat header -->
+    <header class="bg-white p-4 border-b flex items-center justify-between">
+      <h2 id="chat-with" class="text-lg font-medium text-gray-700">Select a session</h2>
+    </header>
+
+    <!-- Messages -->
+    <div id="admin-messages" class="flex-1 p-4 overflow-y-auto bg-gray-50 space-y-3">
+      <!-- Messages go here -->
+    </div>
+
+    <!-- Input -->
+    <div class="p-4 bg-white border-t">
+      <form id="admin-form" class="flex">
+        <input type="text" id="admin-msg" placeholder="Type your message..." disabled
+               class="flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50" />
+        <button type="submit" disabled class="ml-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 focus:outline-none disabled:opacity-50">
+          Send
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Socket.IO -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Flowbite JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.8.4/flowbite.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const sessionListEl = document.getElementById('session-list');
+      const chatWithEl = document.getElementById('chat-with');
+      const messagesEl = document.getElementById('admin-messages');
+      const adminForm = document.getElementById('admin-form');
+      const adminMsgInput = document.getElementById('admin-msg');
+      const adminSendBtn = adminForm.querySelector('button');
+
+      let currentSession = null;
+      const socket = io('/admin');
+
+      // Update session list
+      socket.on('clientList', (list) => {
+        sessionListEl.innerHTML = '';
+        list.forEach(clientId => {
+          const li = document.createElement('li');
+          li.className = 'p-3 hover:bg-gray-100 cursor-pointer';
+          li.textContent = clientId;
+          li.dataset.clientId = clientId;
+          li.addEventListener('click', () => selectSession(clientId, li));
+          sessionListEl.appendChild(li);
+        });
+      });
+
+      socket.on('sessionClosed', (clientId) => {
+        // Optional: show a toast/alert
+        if (clientId === currentSession) {
+          appendSystemMessage(`Session ${clientId} has ended.`);
+          adminMsgInput.disabled = true;
+          adminSendBtn.disabled = true;
+          chatWithEl.textContent = 'Select a session';
+          currentSession = null;
+        }
+      });
+
+      // On chat history
+      socket.on('chatHistory', ({ clientId, messages }) => {
+        if (clientId !== currentSession) return;
+        messagesEl.innerHTML = '';
+        messages.forEach(msg => appendMessage(msg.from, msg.text));
+      });
+
+      // On new message
+      socket.on('newMessage', ({ clientId, from, text }) => {
+        if (clientId !== currentSession) return;
+        appendMessage(from, text);
+      });
+
+      // Select session
+      function selectSession(clientId, listItem) {
+        if (currentSession === clientId) return;
+        // Leave previous
+        if (currentSession) socket.emit('leaveSession', currentSession);
+        // Highlight
+        sessionListEl.querySelectorAll('li').forEach(li => li.classList.remove('bg-gray-200'));
+        listItem.classList.add('bg-gray-200');
+        // Join new
+        currentSession = clientId;
+        chatWithEl.textContent = 'Chat with ' + clientId;
+        adminMsgInput.disabled = false;
+        adminSendBtn.disabled = false;
+        socket.emit('joinSession', clientId);
+        adminForm.querySelector('input').focus();
+      }
+
+      // Send message
+      adminForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const text = adminMsgInput.value.trim();
+        if (!text || !currentSession) return;
+        appendMessage('admin', text);
+        socket.emit('message', { clientId: currentSession, text });
+        adminMsgInput.value = '';
+        adminMsgInput.focus();
+      });
+
+      // Append message helper
+      function appendMessage(sender, text) {
+        const msgDiv = document.createElement('div');
+        msgDiv.classList.add('flex', sender === 'admin' ? 'justify-end' : 'justify-start');
+        msgDiv.innerHTML = `
+          <div class="max-w-xs px-4 py-2 rounded-xl ${sender === 'admin' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-800'}">
+            ${text}
+          </div>
+        `;
+        messagesEl.appendChild(msgDiv);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function appendSystemMessage(text) {
+        const div = document.createElement('div');
+        div.className = 'text-center text-sm text-gray-500';
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+    });
+  </script>
+</body>
+</html>
