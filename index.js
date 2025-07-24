@@ -5,6 +5,7 @@ const fs = require('fs');
 const cors = require('cors');
 const { Server } = require('socket.io');
 const basicAuth = require('express-basic-auth');
+const path = require('path');
 
 const app = express();
 
