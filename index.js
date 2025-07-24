@@ -12,12 +12,16 @@ const app = express();
 app.use(cors());
 
 // Serve static files (client & admin UIs)
-app.use(express.static('public'));
+// app.use(express.static('public'));
 
-app.use('/admin.html', basicAuth({
+app.use('/admin', basicAuth({
   users: { 'admin': 'digitalkeys' },
   challenge: true,
 }));
+
+app.get('/admin', basicAuth({...}), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
 
 // In-memory store of connected clients
 const clients = new Map();
