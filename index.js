@@ -14,12 +14,10 @@ app.use(cors());
 // Serve static files (client & admin UIs)
 // app.use(express.static('public'));
 
-app.use('/admin', basicAuth({
+app.get('/admin', basicAuth({
   users: { 'admin': 'digitalkeys' },
   challenge: true,
-}));
-
-app.get('/admin', basicAuth({...}), (req, res) => {
+}), (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
